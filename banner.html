@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YouTube Banner Downloader (HD)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      color: #cc0000;
+      margin-bottom: 20px;
+    }
+
+    input {
+      padding: 12px;
+      width: 60%;
+      max-width: 500px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    
+    .profile {
+      background-color: #03fcdf;
+      color: black;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button {
+      padding: 12px 20px;
+      margin-left: 10px;
+      background-color: #cc0000;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .banner-box {
+      margin-top: 30px;
+    }
+
+    .banner-img {
+      max-width: 100%;
+      border: 3px solid #cc0000;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .note {
+      margin-top: 20px;
+      font-weight: bold;
+      color: #0d6efd;
+    }
+
+    @media (max-width: 600px) {
+      input, button {
+        width: 90%;
+        margin: 5px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>YouTube Banner Downloader (HD)</h1>
+  <input type="text" id="channel-input" placeholder="Enter @handle, username, or channel ID" />
+  <button onclick="getBanner()">Get Banner</button>
+
+  <!-- Banner display container -->
+<div id="banner-box" class="banner-box"></div>
+
+<!-- Note below image -->
+<div class="note" id="note" style="display:none;">
+  👉 Click the banner image to open it in a new tab (HD).
+</div>
+
+<a href="dp.html"><button class="profile">download YouTube profile photo</button></a>
+
+
+<a href="index.html"><button class="profile">download YouTube thumbnails</button></a>
+
+<script>
+  const API_KEY = "AIzaSyCKVGJMRcLTifdMuJ9AUX3a413mXjMYg0w";
+
+  async function getBanner() {
+    const input = document.getElementById('channel-input').value.trim();
+    const bannerBox = document.getElementById('banner-box');
+    const note = document.getElementById('note');
+    bannerBox.innerHTML = '';
+    note.style.display = 'none';
+
+    if (!input) {
+      bannerBox.innerHTML = '<p style="color:red;">Please enter a valid input.</p>';
+      return;
+    }
+
+    let channelId = '';
+
+    try {
+      if (input.startsWith('UC')) {
+        channelId = input;
+      } else if (input.startsWith('@')) {
+        const handle = input.slice(1);
+        const searchURL = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&q=${handle}&key=${API_KEY}`;
+        const searchRes = await fetch(searchURL);
+        const searchData = await searchRes.json();
+        if (searchData.items.length > 0) {
+          channelId = searchData.items[0].snippet.channelId;
+        } else {
+          bannerBox.innerHTML = '<p style="color:red;">Handle not found.</p>';
+          return;
+        }
+      } else {
+        const usernameURL = `https://www.googleapis.com/youtube/v3/channels?part=id&forUsername=${input}&key=${API_KEY}`;
+        const userRes = await fetch(usernameURL);
+        const userData = await userRes.json();
+        if (userData.items.length > 0) {
+          channelId = userData.items[0].id;
+        } else {
+          bannerBox.innerHTML = '<p style="color:red;">Username not found.</p>';
+          return;
+        }
+      }
+
+      const brandingURL = `https://www.googleapis.com/youtube/v3/channels?part=brandingSettings&id=${channelId}&key=${API_KEY}`;
+      const brandingRes = await fetch(brandingURL);
+      const brandingData = await brandingRes.json();
+
+      if (
+        brandingData.items.length > 0 &&
+        brandingData.items[0].brandingSettings &&
+        brandingData.items[0].brandingSettings.image &&
+        brandingData.items[0].brandingSettings.image.bannerExternalUrl
+      ) {
+        let bannerUrl = brandingData.items[0].brandingSettings.image.bannerExternalUrl;
+
+        if (!bannerUrl.includes('=')) {
+          bannerUrl += '=w2560';
+        }
+
+        const a = document.createElement('a');
+        a.href = bannerUrl;
+        a.target = '_blank';
+        a.rel = 'noopener';
+
+        const img = document.createElement('img');
+        img.src = bannerUrl;
+        img.className = 'banner-img';
+        img.alt = 'YouTube Banner';
+
+        a.appendChild(img);
+        bannerBox.appendChild(a);
+
+        // 🔽 Download button added below
+        const downloadBtn = document.createElement('button');
+        downloadBtn.innerText = 'Download Banner';
+        downloadBtn.style.marginTop = '15px';
+        downloadBtn.style.padding = '10px 16px';
+        downloadBtn.style.borderRadius = '6px';
+        downloadBtn.style.border = 'none';
+        downloadBtn.style.backgroundColor = '#cc0000';
+        downloadBtn.style.color = '#fff';
+        downloadBtn.style.cursor = 'pointer';
+        downloadBtn.onclick = () => downloadImage(bannerUrl, `${channelId}_banner.jpg`);
+        bannerBox.appendChild(downloadBtn);
+
+        note.style.display = 'block';
+      } else {
+        bannerBox.innerHTML = '<p style="color:red;">Banner not available for this channel.</p>';
+      }
+    } catch (err) {
+      console.error(err);
+      bannerBox.innerHTML = '<p style="color:red;">Error fetching data. Please try again later.</p>';
+    }
+  }
+
+  function downloadImage(url, filename) {
+    fetch(url)
+      .then(res => res.blob())
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(blobUrl);
+      })
+      .catch(() => alert('Failed to download image.'));
+  }
+</script>
